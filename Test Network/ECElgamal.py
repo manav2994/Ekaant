@@ -9,6 +9,7 @@ import random
 import itertools
 import codecs
 import zksk
+
 from zksk.primitives import rangeproof
 
 '''
@@ -146,12 +147,8 @@ def encryption(message, publicKey):
 	c1 = ECmultiply(base_point[0], base_point[1], randomKey)
 	c2 = ECmultiply(publicKey[0], publicKey[1], randomKey)
 	c2 = ECadd(c2[0], c2[1], plain_coordinates[0], plain_coordinates[1])
-	m = zksk.Secret(value=message)
-	r= zksk.Secret(value=randomKey)
-	#enc_stmt = zksk.primitives.dlrep.DLRep(c1, ECmultiply(base_point[0], base_point[1], randomKey)) & zksk.primitives.dlrep.DLRep(c2,c2)
-	range_stmt = rangeproof.RangeStmt(c2, (base_point[0], base_point[1]), (publicKey[0],publicKey[1]), 0, 2000, m, r)
-	#stmt = enc_stmt & range_stmt
-	return(c1, c2,range_stmt)
+	
+	return(c1, c2)
 
 
 
