@@ -5,11 +5,20 @@
 ''' 
 This library consists functions for creating Peer-to-Peer Nodes
 '''
+
 import time
 import csv
 import ECElgamal
 import random
 import re
+
+
+from petlib.bn import Bn
+
+from zksk import Secret, DLRep
+from zksk.primitives.rangeproof import PowerTwoRangeStmt, RangeStmt, RangeOnlyStmt
+
+
 from p2pnetwork.node import Node
 
 class collectiveAuthorityRoot (Node):
@@ -379,7 +388,7 @@ class querier (Node):
 
 	#Message Handling Protocol
 	def node_message(self, node, data):
-		print("node_message from " + node.id + ": " + str(data))
+		#print("node_message from " + node.id + ": " + str(data))
 		#-----------Query Results----------
 		if(data['Msg_Type'] == "Query_Reply_to_Q"):
 			print("Received Results")
@@ -449,10 +458,19 @@ class distributedDatabase (Node):
 			print("---------------Query Received-------------")
 			caPublicKey=data["Public_Key"]
 			query=data["Query"]
-			result = random.getrandbits(12)
+			result = random.getrandbits(7)
 			print("RESULT to be Encrypted", result)
 			enc_result1, enc_result2 = self.encryption(result, caPublicKey)
 			self.send_to_nodes({'Msg_Type': "Query_Reply", 'Host':str(node.id), 'Host_Type':"DDB",'Ciphertext1':str(enc_result1),'Ciphertext2':str(enc_result2)})
+			#---------------generate Proof-------------------
+			self.connect_with_node('127.0.0.1', 14001)
+			r = Secret(value=int(result))
+			rangeStmt = RangeOnlyStmt(0, 100, r)
+			nizk = rangeStmt.prove()
+			if(rangeStmt.verify(nizk)==True):
+				self.send_to_nodes({'Msg_Type': "Proof", 'Host':"DDB", 'rangeStmt':"Verified"})	
+			else:
+				self.send_to_nodes({'Msg_Type': "Proof", 'Host':"DDB", 'rangeStmt':"Failed"})			
 
 
 
@@ -467,6 +485,46 @@ class distributedDatabase (Node):
 		return(enc_result1, enc_result2)
 		
 
+		
+	def node_disconnect_with_outbound_node(self, node):
+		print("node wants to disconnect with oher outbound node: " + node.id)
+		
+	def node_request_to_stop(self):
+		print("node is requested to stop!")
+
+###############################################################################################3
+
+
+class verifier (Node):
+
+	# Python class constructor
+	def __init__(self, host, port):
+		super(verifier, self).__init__(host, port, None)
+		print("Verifier: Started")
+
+	# all the methods below are called when things happen in the network.
+				
+	def outbound_node_connected(self, node):
+		print("outbound_node_connected: " + node.id)
+		
+	def inbound_node_connected(self, node):
+		print("inbound_node_connected: " + node.id)
+
+	def inbound_node_disconnected(self, node):
+		print("inbound_node_disconnected: " + node.id)
+
+	def outbound_node_disconnected(self, node):
+		print("outbound_node_disconnected: " + node.id)
+
+	#Message Handling Protocol
+	def node_message(self, node, data):
+		print("node_message from " + node.id + ": " + str(data))
+		if(data['Msg_Type'] == "Proof"):
+			print("---------------Proof Received-------------")
+			if(data['rangeStmt']=="Verified"):
+				print("The Message is VERIFIED within the range of 0 and 4096")
+			else:
+				print("Verification Failed	")
 		
 	def node_disconnect_with_outbound_node(self, node):
 		print("node wants to disconnect with oher outbound node: " + node.id)
